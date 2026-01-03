@@ -1,0 +1,5 @@
+{
+  "name": "LexiFlow: LDOCE Inspired English Dictionary",
+  "description": "A high-end English-to-English dictionary app powered by Gemini, mimicking the Longman Dictionary style with IPA, collocations, and authentic examples.",
+  "requestFramePermissions": []
+}
