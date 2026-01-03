@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { DictionaryEntry } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
@@ -107,4 +107,24 @@ export const fetchSuggestions = async (query: string): Promise<string[]> => {
   } catch {
     return [];
   }
+};
+
+/**
+ * 使用 Gemini TTS 生成真人级语音
+ */
+export const fetchAudio = async (text: string): Promise<string | undefined> => {
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-preview-tts",
+    contents: [{ parts: [{ text: `Pronounce clearly: ${text}` }] }],
+    config: {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName: 'Zephyr' }, // 优雅的英伦男声
+        },
+      },
+    },
+  });
+
+  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 };

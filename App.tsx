@@ -1,10 +1,40 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DictionaryEntry, SearchHistoryItem } from './types';
-import { fetchWordDetails } from './services/geminiService';
+import { fetchWordDetails, fetchAudio } from './services/geminiService';
 import SearchBar from './components/SearchBar';
 import WordDisplay from './components/WordDisplay';
 import HistoryView from './components/HistoryView';
+
+// --- 音频解码工具函数 ---
+function decodeBase64(base64: string) {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+// ----------------------
 
 const App: React.FC = () => {
   const [currentWord, setCurrentWord] = useState<DictionaryEntry | null>(null);
@@ -14,6 +44,8 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [activeView, setActiveView] = useState<'search' | 'history'>('search');
+  
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('dictionary_history');
@@ -31,10 +63,7 @@ const App: React.FC = () => {
       
       if (!isBackAction && currentWord) {
         setBackStack(prev => [...prev, currentWord]);
-      } else if (isBackAction) {
-        // We are already navigating using the stack, handled by goBack
-      } else {
-        // First search, clear stack
+      } else if (!isBackAction) {
         setBackStack([]);
       }
 
@@ -71,11 +100,33 @@ const App: React.FC = () => {
     if (!currentWord) return;
     setIsAudioLoading(true);
     try {
-      const utterance = new SpeechSynthesisUtterance(currentWord.word);
-      utterance.lang = 'en-GB';
-      window.speechSynthesis.speak(utterance);
+      // 获取 Gemini 生成的 base64 PCM 数据
+      const base64Audio = await fetchAudio(currentWord.word);
+      
+      if (base64Audio) {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        
+        const ctx = audioContextRef.current;
+        const audioData = decodeBase64(base64Audio);
+        const audioBuffer = await decodeAudioData(audioData, ctx, 24000, 1);
+        
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        source.start();
+      } else {
+        // 备选方案：如果 AI 语音失败，使用系统自带语音
+        const utterance = new SpeechSynthesisUtterance(currentWord.word);
+        utterance.lang = 'en-GB';
+        window.speechSynthesis.speak(utterance);
+      }
     } catch (err) {
       console.error("Audio failed", err);
+      // 错误回退
+      const utterance = new SpeechSynthesisUtterance(currentWord.word);
+      window.speechSynthesis.speak(utterance);
     } finally {
       setIsAudioLoading(false);
     }
