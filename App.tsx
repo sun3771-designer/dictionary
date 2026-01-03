@@ -100,7 +100,7 @@ const App: React.FC = () => {
     if (!currentWord) return;
     setIsAudioLoading(true);
     try {
-      // 获取 Gemini 生成的 base64 PCM 数据
+      // 获取 Gemini 生成的 base64 PCM 数据 (美音)
       const base64Audio = await fetchAudio(currentWord.word);
       
       if (base64Audio) {
@@ -117,15 +117,16 @@ const App: React.FC = () => {
         source.connect(ctx.destination);
         source.start();
       } else {
-        // 备选方案：如果 AI 语音失败，使用系统自带语音
+        // 备选方案：如果 AI 语音失败，使用系统自带的美音
         const utterance = new SpeechSynthesisUtterance(currentWord.word);
-        utterance.lang = 'en-GB';
+        utterance.lang = 'en-US'; // 切换到美式英语
         window.speechSynthesis.speak(utterance);
       }
     } catch (err) {
       console.error("Audio failed", err);
       // 错误回退
       const utterance = new SpeechSynthesisUtterance(currentWord.word);
+      utterance.lang = 'en-US';
       window.speechSynthesis.speak(utterance);
     } finally {
       setIsAudioLoading(false);

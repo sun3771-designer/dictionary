@@ -110,17 +110,17 @@ export const fetchSuggestions = async (query: string): Promise<string[]> => {
 };
 
 /**
- * 使用 Gemini TTS 生成真人级语音
+ * 使用 Gemini TTS 生成真人级语音 (美式发音)
  */
 export const fetchAudio = async (text: string): Promise<string | undefined> => {
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: `Pronounce clearly: ${text}` }] }],
+    contents: [{ parts: [{ text: `Pronounce clearly in a standard American English accent: ${text}` }] }],
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Zephyr' }, // 优雅的英伦男声
+          prebuiltVoiceConfig: { voiceName: 'Puck' }, // Puck 是非常棒的美式男声
         },
       },
     },
